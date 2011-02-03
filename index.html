@@ -1,0 +1,40 @@
+<!doctype html>  
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>addrable - demo</title>
+	<link rel="stylesheet" href="style.css">
+	<script src="lib/jquery-1.4.2.min.js"></script>
+	<script src="lib/jquery.csv.js"></script>
+	<script src="lib/jquery.table.js"></script>
+	<script src="addrable-core.js"></script>
+	<script src="addrable-client.js"></script>
+	<script>
+	$(function() {
+		$("#go").click(function () {
+			var tableuri = $("#tableuri").val();
+			Addrable.init();
+			Addrable.render(tableuri, "#result");
+		});
+	});
+	</script>
+</head>
+
+<body>
+  <div id="content">
+	<h1>addrable - demo</h1>
+
+    <div id="main">
+		<div id="cmd">
+			<input id="tableuri" type="text" value="data/table1.csv#city=Berlin,person=Richard" size="80"/> 
+			<button id="go">go</button>
+		</div>
+		<div id="result"></div>
+    </div>
+  
+    <div id="footer">
+		<a href="http://sw-app.org/mic.xhtml#i">Michael Hausenblas</a>, 2011.
+    </div>
+  </div>
+</body>
+</html>

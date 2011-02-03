@@ -1,0 +1,13 @@
+"city","date","temperature","reporter"
+"Galway",2011-03-01,3,"Michael"
+"Galway",2011-03-01,4,"Richard"
+"Galway",2011-03-02,10,"Michael"
+"Galway",2011-03-02,10,"Richard"
+"Galway",2011-03-03,9,"Michael"
+"Galway",2011-03-03,5,"Richard"
+"Berlin",2011-03-01,14,"Michael"
+"Berlin",2011-03-01,15,"Richard"
+"Berlin",2011-03-02,10,"Michael"
+"Berlin",2011-03-02,13,"Richard"
+"Berlin",2011-03-03,16,"Richard"
+
