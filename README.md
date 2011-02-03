@@ -28,8 +28,8 @@ Dependencies:
 Note:
 
 Under Chrome, due to a [known issue](http://code.google.com/p/chromium/issues/detail?id=40787) you must enable access from local files:
-
- $ cd "/Applications/Google Chrome.app/Contents/MacOS/"
- $ sudo mv "Google Chrome" Google.real
- $ sudo printf '#!/bin/bash\ncd "/Applications/Google Chrome.app/Contents/MacOS"\n"/Applications/Google Chrome.app/Contents/MacOS/Google.real"  --allow-file-access-from-files "$@"\n' > Google\ Chrome
- $ chmod 755 "Google Chrome"
+    
+    $ cd "/Applications/Google Chrome.app/Contents/MacOS/"
+    $ sudo mv "Google Chrome" Google.real
+    $ sudo printf '#!/bin/bash\ncd "/Applications/Google Chrome.app/Contents/MacOS"\n"/Applications/Google Chrome.app/Contents/MacOS/Google.real"  --allow-file-access-from-files "$@"\n' > Google\ Chrome
+    $ chmod 755 "Google Chrome"
