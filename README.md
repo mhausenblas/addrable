@@ -1,9 +1,11 @@
 # Addrable
 
-All over the Web you can find [rectangular](http://webofdata.wordpress.com/2010/04/14/oh-it-is-data-on-the-web/#comment-437) data in [CSV files](http://www.google.com/search?q=filetype%3Acsv). Typically, this data is treated in its entirety, meaning you retrieve the entire CSV file and then deal with it your applications. That's not very [webby](http://webofdata.wordpress.com/2010/03/01/data-and-the-web-choices/). Wouldn't it be nicer to be able to address parts of a table, that is, certain columns or rows?
+All over the Web you can find [rectangular](http://webofdata.wordpress.com/2010/04/14/oh-it-is-data-on-the-web/#comment-437) data in [CSV files](http://www.google.com/search?q=filetype%3Acsv). Typically, this data is treated in its entirety, meaning you retrieve the entire CSV file and then you deal with it in your application. But that's not very [webby](http://webofdata.wordpress.com/2010/03/01/data-and-the-web-choices/).
+
+Wouldn't it be nicer to be able to address parts of a table, that is, certain columns or rows? Now you can with Addrables!
 
 ## How does this work?
-Now you can with Addrables! Addrable is short for **Addr**essable T**able** - essentially making parts of a table addressable via URIs. It works as follows: take a look at this [example table](https://github.com/mhausenblas/addrable/raw/master/data/table1.csv):
+ Addrable is short for **Addr**essable T**able** - essentially making parts of a table addressable via URIs. OK, sounds nice in theory, but how does it work? Well, take a look at this [example table](https://github.com/mhausenblas/addrable/raw/master/data/table1.csv):
 
     city    person   visits
     ----------------------
@@ -74,6 +76,36 @@ On the server, you need to have node.js [installed](https://github.com/ry/node/w
     Using: Addrable v0.1
 
 Note that the server-side is not yet fully functional. I'm working on it ;)
+
+## Addressing scheme
+
+So after you've seen how it works in practice, you might now be interested what happens behind the scenes?
+The basic idea behind Addrables is that we use the so-called [fragment identifier component](http://tools.ietf.org/html/rfc3986#section-3.5) of a URI, the string following the **#**: for <tt>http://example.org/data#key=value</tt> this would be <tt>key=value</tt>. The fragment identifier is not transmitted to the server, though can be used by the client to perform some awesome things ([read more ...](http://www.w3.org/2001/tag/2011/01/HashInURI-20110115)). 
+
+The fact that the fragment identifier is not sent to the server and because the [CSV media type](http://tools.ietf.org/html/rfc4180) does not specify the meaning of a fragment identifier, we can use it amongst other things to address into a CSV file.
+
+In general, an Addrable URI has the following form:
+
+    aURI = "http:" authority path [ "?" query ] "#" fragment
+
+That is, the Addrable URI is an HTTP URI with:
+
+* a certain <tt>authority</tt> component, typically containing a host and port, such as <tt>example.org:8080</tt>,
+* a <tt>path</tt> component, such as <tt>/data</tt>,
+* an optional <tt>query</tt> part, for example <tt>?abc</tt>, and
+* the <tt>fragment</tt> identifier that encodes a selected slice
+
+A valid fragment identifier in an Addrable URI is hence defined in the following:
+
+    fragment = +( col "=" val "," )
+
+With <tt>col</tt> being one of the values from the CSV file header row (aka as column), occurring at most once. Further, <tt>val</tt> is a value in the respective column of a non-header row in the CSV file. For example, for the [example table](https://github.com/mhausenblas/addrable/raw/master/data/table1.csv) from above:
+
+* <tt>#city=Berlin</tt> ... VALID
+* <tt>#city=Berlin,city=Galway</tt> ... INVALID as <tt>city</tt> can only occur once
+* <tt>#city=</tt> ... INVALID as the value is missing
+* <tt>#=Berlin</tt> ... INVALID as the column is missing
+* <tt>#number=20</tt> ... INVALID as the column doesn't exist
 
 
 ## License
