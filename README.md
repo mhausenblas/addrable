@@ -52,7 +52,7 @@ To better understand how Addrable works, you might want run the following exampl
 
 ### Client-side
 
-As already mentioned, the client is implemented using jQuery and a jQuery plug-in, see the [lib/](https://github.com/mhausenblas/addrable/tree/master/lib) directory for details. To play around with the client demo, simply grab the content of the repository via git clone or [download it](https://github.com/mhausenblas/addrable/archives/master)) and point you browser to <tt>index.html</tt>. Try the following Addrables:
+As already mentioned, the client is implemented using jQuery and a jQuery plug-in, see the [lib/](https://github.com/mhausenblas/addrable/tree/master/lib) directory for details. To play around with the client demo, simply grab the content of the repository via git clone or [download it](https://github.com/mhausenblas/addrable/archives/master) and point you browser to <tt>index.html</tt>. Try the following Addrables:
 
 * <tt>data/table2.csv#city=Galway,date=2011-03-01,reporter=Richard</tt>
 * <tt>data/table2.csv#city=Galway,reporter=Richard</tt>
@@ -110,6 +110,8 @@ separated by an equal sign (<tt>=</tt>) and all but the last pair completed by a
 * <tt>#=Berlin</tt> ... INVALID as the column is missing
 * <tt>#number=20</tt> ... INVALID as the column doesn't exist
 
+## Acknowledgements
+The following people influenced the design of Addrable and came up with improvements: [Richard Cyganiak](https://github.com/cygri) for the initial idea of how to render slices and the proposal extend Addrables to address rows; [KevBurnsJr](https://github.com/KevBurnsJr) for pointing out the similarity with [JSON hyper-schema](http://tools.ietf.org/html/draft-zyp-json-schema) and for the Addrable sales-pitch 'a CSV query interface implemented in URL fragments'. 
 
 ## License
 
