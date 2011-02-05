@@ -81,15 +81,10 @@ On the server, you need to have node.js [installed](https://github.com/ry/node/w
 Once you've started the Addrable server demo, you can use, for example `curl` to resolve Addrables, for example:
 
     $ curl http://127.0.0.1:8086/http%3A%2F%2F127.0.0.1%3A8086%2Fdata%2Ftable1.csv
- 
-> Note that the server-side is not yet fully functional, but I'm working on it ;)
 
-## Dependencies
+#### Dependencies
 
-* Client-side: tested with jQuery 1.4.2 and the [js-tables](http://code.google.com/p/js-tables/) plug-in
-* Server-side: tested with node-v0.2.6
-
-
+I've tested it with node-v0.2.6 and curl under MacOS X 10.5.8. *Note that the server-side is not yet fully functional, but I'm working on it ;)*
 
 
 ## Acknowledgements
