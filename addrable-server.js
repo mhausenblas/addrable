@@ -9,6 +9,7 @@ var http = require("http");
 var url = require("url");
 var path = require("path");
 var fs = require("fs");
+var csv = require("./lib/csv");
 var addrable = require('./addrable-core');
 var adb = addrable.createAddrable();
 
@@ -44,7 +45,12 @@ this.getFile = function(req, res, fileuri) {
 this.sliceAsJSON =  function(req, res, fileuri, seldimensions) {
 	fileuri =  stripHashFromURI(fileuri);
 	res.writeHead(200);
-	requestFileByURI(fileuri);
+	console.log("DEBUG::" + requestFileByURI(fileuri));
+	/*
+    csv.each("data/table1.csv").addListener("data", function(data) { 
+		console.log("DEBUG::" + data);
+	});
+	*/
 	res.write("Selected dimensions: " + adb.listDimensions(seldimensions));	
 	res.end();
 };
@@ -84,7 +90,7 @@ function requestFileByURI(fileuri) {
 		response.setEncoding('utf8');
 		response.on('data', function (chunk) {
 			console.log('BODY: ' + chunk);
-			//return chunk;	
+			return chunk;	
 		});
 	});	
 }
