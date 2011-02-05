@@ -42,30 +42,28 @@ Addrable is a 100% JavaScript library for either client-side or server-side proc
 * `addrable-client.js`, a [jQuery](http://jquery.com/)-based implementation that renders slices in various ways.
 * `addrable-server.js`, a [node.js](http://nodejs.org/)-based implementation that returns slices in JSON.
 
-## Dependencies
-
-* Client-side: tested with jQuery 1.4.2 and the [js-tables](http://code.google.com/p/js-tables/) plug-in
-* Server-side: tested with node-v0.2.6
-
 ## How can I use it?
 
-To better understand how Addrable works, you might want run the following examples.
+To better understand how Addrable works, you might want run the following examples either using the client demo (in your browser) or the server demo (using the command-line).
 
 ### Client-side
 
-As already mentioned, the client is implemented using jQuery and a jQuery plug-in, see the [lib/](https://github.com/mhausenblas/addrable/tree/master/lib) directory for details. To play around with the client demo, simply grab the content of the repository via git clone or [download it](https://github.com/mhausenblas/addrable/archives/master) and point your browser to `index.html`. Try the following Addrables:
+As already mentioned, the client is implemented using jQuery and a jQuery plug-in, see the [lib/](https://github.com/mhausenblas/addrable/tree/master/lib) directory for details. To play around with the client demo, simply grab the content of the repository via git clone or [download it](https://github.com/mhausenblas/addrable/archives/master) and point your browser to `index.html`. 
+
+#### Examples
+Try the following Addrables:
 
 * `data/table2.csv#col:*`
 * `data/table2.csv#col:temperature`
 * `data/table2.csv#row:*`
-* data/table2.csv#row:10
+* `data/table2.csv#row:10`
 * `data/table2.csv#where:city=Galway,date=2011-03-01,reporter=Richard`
 * `data/table2.csv#where:city=Galway,reporter=Richard`
 * `data/table2.csv#where:city=Galway`
 
-### Note for Chrome users
+#### Dependencies
 
-To use the Addrable client demo under Chrome you must enable access from local files due to a [known issue](http://code.google.com/p/chromium/issues/detail?id=40787):
+I've tested it with jQuery 1.4.2 and the [js-tables](http://code.google.com/p/js-tables/) plug-in (which you can find in the `lib/` directory) under MacOS X 10.5.8/Firefox 3.6.13. **Note for Chrome users**: to use the Addrable client demo under Chrome you must enable access from local files due to a [known issue](http://code.google.com/p/chromium/issues/detail?id=40787):
     
     $ cd "/Applications/Google Chrome.app/Contents/MacOS/"
     $ sudo mv "Google Chrome" Google.real
@@ -80,7 +78,19 @@ On the server, you need to have node.js [installed](https://github.com/ry/node/w
     Addrable server running and listening on port 8086 ...
     Using: Addrable v0.1
 
-Note that the server-side is not yet fully functional, but I'm working on it ;)
+Once you've started the Addrable server demo, you can use, for example `curl` to resolve Addrables, for example:
+
+    $ curl http://127.0.0.1:8086/http%3A%2F%2F127.0.0.1%3A8086%2Fdata%2Ftable1.csv
+ 
+> Note that the server-side is not yet fully functional, but I'm working on it ;)
+
+## Dependencies
+
+* Client-side: tested with jQuery 1.4.2 and the [js-tables](http://code.google.com/p/js-tables/) plug-in
+* Server-side: tested with node-v0.2.6
+
+
+
 
 ## Acknowledgements
 The following people influenced the design of Addrable and came up with improvements: [Richard Cyganiak](https://github.com/cygri) for the initial idea of how to render slices as well as for his proposal to extend Addrables to address rows; [KevBurnsJr](https://github.com/KevBurnsJr) for pointing out the similarity with [JSON hyper-schema](http://tools.ietf.org/html/draft-zyp-json-schema) and for the Addrable sales-pitch 'a CSV query interface implemented in URL fragments'. 
