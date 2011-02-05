@@ -52,7 +52,7 @@ To better understand how Addrable works, you might want run the following exampl
 
 ### Client-side
 
-As already mentioned, the client is implemented using jQuery and a jQuery plug-in, see the [lib/](https://github.com/mhausenblas/addrable/tree/master/lib) directory for details. To play around with the client demo, simply grab the content of the repository via git clone or [download it](https://github.com/mhausenblas/addrable/archives/master) and point you browser to `index.html`. Try the following Addrables:
+As already mentioned, the client is implemented using jQuery and a jQuery plug-in, see the [lib/](https://github.com/mhausenblas/addrable/tree/master/lib) directory for details. To play around with the client demo, simply grab the content of the repository via git clone or [download it](https://github.com/mhausenblas/addrable/archives/master) and point your browser to `index.html`. Try the following Addrables:
 
 * `data/table2.csv#where:city=Galway,date=2011-03-01,reporter=Richard`
 * `data/table2.csv#where:city=Galway,reporter=Richard`
@@ -94,8 +94,56 @@ An Addrable URI is an HTTP URI with:
 * an optional `query` part, for example `?abc`, and
 * the `fragment` identifier that encodes a selected slice, column or row of the target CSV file
 
-### Addrable syntax
-A fragment identifier in Addrable is interpreted according the following syntax given in ABNF as per [RFC5234][RFC5234]:
+### Addrable addressing
+
+The Addrable allows for one of the following three selections:
+
+#### Column selection
+
+Begins with `col:`, where the value is either:
+
+* one the values from the CSV file header row, in which case the respective column is selected and all rows of this columns are returned, or 
+* the character `*`, meaning that the entire header row (all columns) are returned.
+
+Examples for *column selection* against the [target table](https://github.com/mhausenblas/addrable/raw/master/data/table1.csv) introduced in the example above:
+
+* `col:city` ... VALID column selection, yields [Berlin, London, Rom, Berlin, London, Rom]
+* `col:*` ... VALID column selection, yields [city, person, visits]
+* `col:` ... INVALID column selection as the value for the column is missing
+* `col:meh` ... INVALID column selection as the column doesn't exist in the target table
+
+#### Row selection
+
+Begins with `row:`, where the value is either:
+
+* a non-negative integer, denoting the row to select (starting with 0) - if the row exists, the entire row is returned, or
+* the character `*`, meaning that the number of rows is returned as an integer value.
+
+Examples for *row selection* against the [target table](https://github.com/mhausenblas/addrable/raw/master/data/table1.csv) introduced in the example above:
+
+* `row:2` ... VALID row selection, yields [Rom, Richard, 1]
+* `row:*` ... VALID row selection, yields 6
+* `row:` ... INVALID row selection as the value for the row is missing
+* `row:42` ... INVALID row selection as the row doesn't exist in the target table
+
+#### Indirect selection
+
+Begins with with `where:`, with a comma-separated list of column-value pairs where:
+
+* `col`, being one of the values from the CSV file header row (aka as column), occurring at most once, and
+* `val`, which is a value in the respective selected column of a non-header row in the CSV file, 
+* separated by an equal sign `=` 
+
+Examples for *indirect selection* against the [target table](https://github.com/mhausenblas/addrable/raw/master/data/table1.csv) introduced in the example above:
+
+* `where:city=Berlin` ... VALID indirect selection (see introductory example for result)
+* `where:city=Berlin,city=Galway` ... INVALID indirect selection as `city` can only occur once
+* `where:city=` ... INVALID indirect selection as the value is missing
+* `where:=Berlin` ... INVALID indirect selection as the value for the column is missing
+* `where:number=20` ... INVALID indirect selection as the column doesn't exist in the target table
+
+#### Addrable syntax
+A fragment identifier in Addrable is interpreted according to the following syntax (given in ABNF, as per [RFC5234][RFC5234]):
 
     addrable =  wheresel / colsel / rowsel ; top-level production
     wheresel = "where:" kvpairs ; indirect selection 
@@ -112,38 +160,6 @@ A fragment identifier in Addrable is interpreted according the following syntax 
     TEXTDATA =  %x23-2B / %x2D-3C / %x3E-7E  ; per RFC4180 (CSV format) but exclude ' ' (space) and '='
     DIGIT =  %x30-39 ; the digits 0-9 (cf. RFC5234 core rules)
 
-The Addrable syntax hence allows for one of three cases:
-
-1. **Indirect selection** (starting off with `where:`), with a comma-separated list of column-value pairs where:
- * `col`, being one of the values from the CSV file header row (aka as column), occurring at most once, and
- * `val`, which is a value in the respective selected column of a non-header row in the CSV file, 
- * separated by an equal sign `=` 
-2. **Column selection** (begins with `col:`), where the value is either:
- * one the values from the CSV file header row, in which case the respective column is selected and all rows of this columns are returned, or 
- * the character `*`, meaning that the entire header row (all columns) are returned.
-3. **Row selection** (begins with `row:`), where the value is either:
- * a non-negative integer, denoting the row to select (starting with 0) - if the row exists, the entire row is returned, or
- * the character `*`, meaning that the number of rows is returned as an integer value.
-
-### Examples
-For example, for the [target table](https://github.com/mhausenblas/addrable/raw/master/data/table1.csv) introduced in the example above:
-
-* Examples for *indirect selection*
- * `where:city=Berlin` ... VALID indirect selection (see introductory example for result)
- * `where:city=Berlin,city=Galway` ... INVALID indirect selection as `city` can only occur once
- * `where:city=` ... INVALID indirect selection as the value is missing
- * `where:=Berlin` ... INVALID indirect selection as the value for the column is missing
- * `where:number=20` ... INVALID indirect selection as the column doesn't exist in the target table
-* Examples for *column selection*
- * `col:city` ... VALID column selection, yields [Berlin, London, Rom, Berlin, London, Rom]
- * `col:*` ... VALID column selection, yields [city, person, visits]
- * `col:` ... INVALID column selection as the value for the column is missing
- * `col:meh` ... INVALID column selection as the column doesn't exist in the target table
-* Examples for *row selection*
- * `row:2` ... VALID row selection, yields [Rom, Richard, 1]
- * `row:*` ... VALID row selection, yields 6
- * `row:` ... INVALID row selection as the value for the row is missing
- * `row:42` ... INVALID row selection as the row doesn't exist in the target table
 
 ## Acknowledgements
 The following people influenced the design of Addrable and came up with improvements: [Richard Cyganiak](https://github.com/cygri) for the initial idea of how to render slices as well as for his proposal to extend Addrables to address rows; [KevBurnsJr](https://github.com/KevBurnsJr) for pointing out the similarity with [JSON hyper-schema](http://tools.ietf.org/html/draft-zyp-json-schema) and for the Addrable sales-pitch 'a CSV query interface implemented in URL fragments'. 
