@@ -53,14 +53,14 @@ a.home:hover {
 }
 
 #result th  {
-	border: 1px solid #ee0;
+	border: 1px solid #e0e0e0;
 	padding: 1px 5px; 
 	width: 10em; 
-	background: #ff0;
+	background: #f0f0f0;
 }
 
 #result td  {
-	border: 1px solid #ee0;
+	border: 1px solid #e0e0e0;
 	padding: 1px 5px; 
 	width: 10em; 
 }
@@ -73,6 +73,29 @@ a.home:hover {
 	margin: 2em 1em 0 1em;
 	font-size: 70%;
 	text-align: center;
+}
+
+
+.colvalues, .rowvalues {
+	margin: 1em;
+	-moz-border-radius: 2px;
+	-webkit-border-radius: 2px;
+	text-align: center;
+	font-size: 18pt;
+	color: #9e9e9e;
+}
+
+.colvalue {
+	border: 1px solid #e0e0e0;
+	margin: 1em;
+	padding: .5em;
+}
+
+.rowvalue {
+	font-size: 10pt;
+	border: 1px solid #e0e0e0;
+	padding: .5em;
+	margin: .1em;
 }
 
 

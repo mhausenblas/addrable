@@ -6,48 +6,19 @@
 
 // renders slices in one of three modes: single value, line chart or table, depending on selected dimensions
 Addrable.render = function(tableuri, outputid) {
-	var output = $(outputid);
 	var that = this;
+	
 	$.ajax({
 		url : tableuri,
 		success : function(data) {
-			var seldimensions = that.parseDimensions(tableuri); // parse dimension selector string into hashtable 
-			var hrow = null; // the entire header row (column heads)
-			var hfrow = null; // the header row w/o the selected dimension (if only one is selected)
-			var fulltable = null; // the entire table
-			var xdim = "";
-			var ydim = "";
-			if(seldimensions){ // there is at least one dimension selected, for example #city=Berlin or #city=Galway,date=2011-03-03
-				fulltable = $.csv2json()(data); // parse data into array
-				hrow =  that.trimHeader($.csv()(data)[0]); // retrieve header row
-				if(Object.size(seldimensions) === (Object.size(hrow) - 1)) { // all but one dimension selected
-					output.html(renderSingleValue(seldimensions, hrow, fulltable, tableuri)); // single value rendering
-				}
-				else { // more than one dimension selected
-					hfrow = that.filterTableHeader(hrow, seldimensions); // we check to see if we can plot it as a line chart
-					if(Object.size(hfrow) == 2) {// two dimensions left for rendering	
-						if(!that.isNumericCell(fulltable[0][hfrow[0]]) && !that.isNumericCell(fulltable[0][hfrow[1]])){ // neither dimension has numeric values
-							output.table($.csv()(renderAsTable(seldimensions, hrow, fulltable))); // hence we can only render it as a table
-						}
-						else {// at least one dimension has numeric values
-							if(that.isNumericCell(fulltable[0][hfrow[0]])) {
-								ydim = hfrow[0];
-								xdim = hfrow[1];
-							}
-							else {
-								ydim = hfrow[1];
-								xdim = hfrow[0];
-							}
-							output.html(renderAsLineChart(seldimensions, xdim, ydim, fulltable, tableuri));
-						}
-					}
-					else {
-						output.table($.csv()(renderAsTable(seldimensions, hrow, fulltable))); // hence we can only render it as a table
-					}
-				}
+			var successful = false;
+			
+			if(that.isAddrable(tableuri)) { // we have an Addrable, process it ...
+				that.processAddrable(data, tableuri, processcol, processrow, processwhere, outputid) ? successful = true : successful = false ;
+				if(!successful) $(outputid).html("<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>Sorry, I can't process the Addrable - either the selector is invalid or it didn't match anything in the CSV file.</div>");
 			}
-			else { // no dimension(s) selected, hence render entire table
-				output.table($.csv()(data));
+			else { // ... render entire table
+				$(outputid).table($.csv()(data));
 			}
 		},
 		error: function(xhr, textStatus, errorThrown){
@@ -58,6 +29,110 @@ Addrable.render = function(tableuri, outputid) {
 	////////////////////////////////////
 	// Addrable client helper functions
 	//
+
+	// processes the column selection case on the client-side
+	function processcol(data, selcol, outputid){
+		var output = $(outputid);
+		var hrow = null; // the entire header row (column heads)
+		var fulltable = null; // the entire table
+		var b = "<div class='colvalues'>";
+		
+		if(selcol === "*"){ // return header row
+			hrow =  that.trimHeader($.csv()(data)[0]); // retrieve header row
+			for(h in hrow){
+				b += "<span class='colvalue'>" + hrow[h] + "</span>";
+			}
+		}
+		else { // select values from the column
+			fulltable = $.csv2json()(data); // parse data into array
+			for(row in fulltable) {
+				b += "<div class='rowvalue'>" + fulltable[row][selcol] + "</div>";
+			}
+			
+		}
+		output.html(b + "</div>");
+		return true;
+	}
+
+	// processes the row selection case on the client-side
+	function processrow(data, selrow, outputid){
+		var output = $(outputid);
+		var rcounter = 0;
+		var hrow = null; // the entire header row (column heads)
+		var fulltable = null; // the entire table
+		var b = "<div class='rowvalues'>";
+
+		fulltable = $.csv2json()(data); // parse data into array
+		
+		if(selrow === "*"){ // count rows
+			for(row in fulltable) {
+				rcounter = rcounter + 1;
+			}
+			b += "<span class='colvalue'>table contains " + rcounter + " rows</span>";
+		}
+		else { // select all columns from specified row or null if not exists
+			if (selrow < 0) return null; // row index invalid, signal failure
+			hrow =  that.trimHeader($.csv()(data)[0]); // retrieve header row
+			for(row in fulltable) {
+				rcounter = rcounter + 1;
+				if(row === selrow) {
+					b += "<table><tr>";
+					for(h in hrow){
+						b += "<th>" + hrow[h] + "</th>";
+					}
+					b += "</tr><tr>";
+					for(h in hrow){
+						b += "<td>" + fulltable[row][hrow[h]]+ "</td>";
+					}
+					b += "</tr></table>";
+					break;
+				}
+			}
+			if (selrow > rcounter - 1) return null; // row index beyond table length, signal failure
+		}
+		output.html(b + "</div>");
+		return true;
+	}
+	
+	// processes the indirect selection case on the client-side
+	function processwhere(data, seldimensions, outputid){
+		var output = $(outputid);
+		var hrow = null; // the entire header row (column heads)
+		var hfrow = null; // the header row w/o the selected dimension (if only one is selected)
+		var fulltable = null; // the entire table
+		var xdim = "";
+		var ydim = "";
+			
+		fulltable = $.csv2json()(data); // parse data into array
+		hrow =  that.trimHeader($.csv()(data)[0]); // retrieve header row
+		if(Object.size(seldimensions) === (Object.size(hrow) - 1)) { // all but one dimension selected
+			output.html(renderSingleValue(seldimensions, hrow, fulltable, tableuri)); // single value rendering
+		}
+		else { // more than one dimension selected
+			hfrow = that.filterTableHeader(hrow, seldimensions); // we check to see if we can plot it as a line chart
+			if(Object.size(hfrow) == 2) {// two dimensions left for rendering	
+				if(!that.isNumericCell(fulltable[0][hfrow[0]]) && !that.isNumericCell(fulltable[0][hfrow[1]])){ // neither dimension has numeric values
+					output.table($.csv()(renderAsTable(seldimensions, hrow, fulltable))); // hence we can only render it as a table
+				}
+				else {// at least one dimension has numeric values
+					if(that.isNumericCell(fulltable[0][hfrow[0]])) {
+						ydim = hfrow[0];
+						xdim = hfrow[1];
+					}
+					else {
+						ydim = hfrow[1];
+						xdim = hfrow[0];
+					}
+					output.html(renderAsLineChart(seldimensions, xdim, ydim, fulltable, tableuri));
+				}
+			}
+			else {
+				output.table($.csv()(renderAsTable(seldimensions, hrow, fulltable))); // hence we can only render it as a table
+			}
+		}
+		return true;
+	}
+	
 	// renders table along selected dimensions as CSV string to be rendered by jQuery plug-in
 	function renderAsTable(seldimensions, hrow, table){
 		var csvstring = "";
@@ -104,7 +179,7 @@ Addrable.render = function(tableuri, outputid) {
 			b += "</div>";
 		}
 		else {
-			b = "not found";
+			b = "<div class='pvalue'><div class='vsel'>not found</div></div>";
 		}
 		return b;
 	}

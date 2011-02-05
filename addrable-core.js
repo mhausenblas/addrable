@@ -12,6 +12,10 @@
 //  http://jquery.org/license
 
 var ADDRABLE_VERSION_INFO = "Addrable v0.1";
+var ADDRABLE_SELECTOR_COL = "col";
+var ADDRABLE_SELECTOR_ROW = "row";
+var ADDRABLE_SELECTOR_WHERE = "where";
+
 
 //////////////////////////////////////////////////////////
 // For server-side usage with node.js.
@@ -33,6 +37,11 @@ this.createAddrable = function() {
 //  Addrable.render(tableuri, "#someelement");
 var Addrable =  {
 
+/*
+	  Initializes the Addrable.
+
+*/
+
 	init : function(){
 		this.trim = String.prototype.trim;
 		this.rnotwhite = /\S/; // check if a string has a non-whitespace character in it
@@ -49,44 +58,129 @@ var Addrable =  {
 	},
 
 /*
-	  Turns the percent-encoded path element of a URI into a valid dimension selector string
+	  Turns a percent-encoded path element of a URI into a valid dimension selector string
 	  (typically for server-side usage).
 
 	   preprocessDimensions('http%3A%2F%2F127.0.0.1%3A8086%2Fdata%2Ftable1.csv%23city%3DBerlin) -> 'http://127.0.0.1:8086/data/table1.csv#city=Berlin'
+	
 */
 	preprocessDimensions : function(sURI){
 		if(sURI.substring(0, 1) === '/') sURI = sURI.substring(1, sURI.length); // get rid of leading slash if present
 		return sURI;
 	},
-	
-/*
-	  Tests a URI for a table dimension selector string and if present parses it into a hastable.
 
-	   parseDimensions('#city=Galway,date=2011-03-03') -> {'city': 'Galway', 'date' : '2011-03-03'}
+/*
+	  Tries to parse the fragment identifier part of a URI according to 
+	  the Addrable syntax selector string (see README.md). If present,
+	  returns the selector case (where, column, or row) and the selector value.
+
+	   parseAddrable('#where:city=Galway,date=2011-03-03') -> [ 'where' , {'city': 'Galway', 'date' : '2011-03-03'} ]
+	
 */
-	parseDimensions : function(tableuri){
+	parseAddrable : function(tableuri){
+		var addrableMode = "";
+		var addrableVals = "";
+		var selcol = "";
+		var selrow = 0;
 		var dimensions = [];
 		var dimht = [];
 		var dimk = null;
 		var dimv = null;
 	
-		if(tableuri.indexOf("#") < 0){ // no dimension selector string found
+		if(tableuri.indexOf("#") < 0) { // no selector string found
 			return null;
 		} 
-		else{
-			dimensions = tableuri.substring(tableuri.indexOf("#") + 1).split(","); // turn string into array of key/val pairs
-			for (dim in dimensions){ // each dimension found, put it into a hashtable
-				dimk = dimensions[dim].substring(0, dimensions[dim].indexOf("="));
-				dimv = dimensions[dim].substring(dimensions[dim].indexOf("=") + 1);
-				if((dimk !== '') && (dimv !== '')) {
-					dimht[dimk] = dimv
-				}
-				else return null;//invalid selector string
+		else {
+			addrableMode = tableuri.substring(tableuri.indexOf("#") + 1, tableuri.indexOf(":"));
+			
+			if(addrableMode.length < 1) return null; // selector key not found
+
+			addrableVals = tableuri.substring(tableuri.indexOf("#") + 1);
+			addrableVals = addrableVals.substring(addrableVals.indexOf(":") + 1);
+			
+			if(addrableMode === ADDRABLE_SELECTOR_COL) { // column selection case
+				selcol = addrableVals;
+				return [ADDRABLE_SELECTOR_COL, selcol];
 			}
-			return dimht;
+			else {
+				if(addrableMode === ADDRABLE_SELECTOR_ROW) { // row selection case
+					selrow = addrableVals;
+					return [ADDRABLE_SELECTOR_ROW, selrow];
+				}
+				else {
+					if(addrableMode === ADDRABLE_SELECTOR_WHERE) { // indirect selection case
+						dimensions = addrableVals.split(","); // turn string into array of key/val pairs
+						for (dim in dimensions){ // each dimension found, put it into a hashtable
+							dimk = dimensions[dim].substring(0, dimensions[dim].indexOf("="));
+							dimv = dimensions[dim].substring(dimensions[dim].indexOf("=") + 1);
+							if((dimk !== '') && (dimv !== '')) {
+								dimht[dimk] = dimv
+							}
+							else return null;//invalid selector string
+						}
+						return [ADDRABLE_SELECTOR_WHERE, dimht];
+					}
+					else {
+						return null; // unknown selector
+					}
+				}
+			}
 		}
 	},
+
+/*
+	Checks if the fragment identifier part of a URI conforms to 
+	the Addrable syntax selector string (see README.md).
+
+	  parseDimensions('#city=Galway,date=2011-03-03') -> {'city': 'Galway', 'date' : '2011-03-03'}
+
+*/
+	isAddrable : function(tableuri){
+		if(this.parseAddrable(tableuri)) return true;
+		else return false;
+	},
 	
+/*
+	  Processes an Addrable generically: client and server implementations are expected to provide respective callbacks.
+
+	  data ... CSV data
+	  tableuri ... URI with Addrable frag id
+	  colprocfun, rowprocfun, whereprocfun ... selector callbacks
+	  outelem ... (only for client-side) the @id of the HTML element for rendering the output
+	 
+*/
+	processAddrable : function(data, tableuri, colprocfun, rowprocfun, whereprocfun, outelem){
+		var addrable = this.parseAddrable(tableuri); // parse selector string 
+		var addrablecase = null;
+		var selval = null;
+	
+		if(addrable) { // we have an Addrable to process
+			addrablecase = addrable[0];
+			selval = addrable[1];
+
+			if(addrablecase === ADDRABLE_SELECTOR_COL) { // column selection case
+				return colprocfun(data, selval, outelem);
+			}
+			else {
+				if(addrablecase === ADDRABLE_SELECTOR_ROW) { // row selection case
+					return rowprocfun(data, selval, outelem);
+				}
+				else {
+					if(addrablecase === ADDRABLE_SELECTOR_WHERE) { // indirect selection case
+						return whereprocfun(data, selval, outelem);
+					}
+				}
+			}
+		}
+		else return null; // signal process failed
+	},
+
+/*
+	  Indirect selection - produces a simple string representation of selected dimensions.
+
+	  listDimensions('{'city': 'Galway', 'date' : '2011-03-03'}) -> 'city=Galway date=2011-03-03'
+
+*/
 	listDimensions : function(seldimensions){
 		var  b = "";
 		for (sdim in seldimensions){
@@ -96,7 +190,8 @@ var Addrable =  {
 	},
 
 /*
-	  Finds the dimension that is not selected through comparing selected dimensions with header row.
+	  Indirect selection - finds the dimension that is not selected through 
+	  comparing selected dimensions with header row.
 
 	  nonSelectedDimension({'city': 'Galway', 'date' : '2011-03-03'}, ['city', 'date', 'temperature']) -> 'temperature' 
 
@@ -111,9 +206,8 @@ var Addrable =  {
 	},
 
 /*
-	  Slices a table along a selected dimension (with optional
-	  filter key and value matches for another dimension), 
-	  returning an array.
+	  Indirect selection - slices a table along a selected dimension (with optional
+	  filter key and value matches for another dimension), returning an array.
 
 	  Given the following table encoded as CSV table object jQuery.csv()(csvstring):
 
@@ -164,13 +258,13 @@ var Addrable =  {
 						vals.push(this.trims(this.stripQuotes(table[row][v])));
 					}
 				}
-			}		
+			}
 		}	
 		return vals;
 	},
 
 /*
-	  Slices a table header row, effectively filtering out the selected dimension.
+	  Indirect selection - slices a table header row, effectively filtering out the selected dimension.
  
 	  filterTableHeader(['city', 'date', 'temperature', 'reporter'], ['city','reporter']) -> ['date','temperature']
 */
@@ -185,18 +279,18 @@ var Addrable =  {
 	},
 
 /*
-  Slices a table along a selected dimension with a dimension value, 
-  returning a CSV string representing the subtable (w/o header row).
+	  Indirect selection - slices a table along a selected dimension with a dimension value, 
+	  returning a CSV string representing the subtable (w/o header row).
 
-  Given the following table encoded as CSV table object jQuery.csv()(csvstring):
+	  Given the following table encoded as CSV table object jQuery.csv()(csvstring):
 
-  city  date  T 
-  --------------
-  GWY   Mo    13
-  GWY   Tue   30
-  BER   Wed   20
+	  city  date  T 
+	  --------------
+	  GWY   Mo    13
+	  GWY   Tue   30
+	  BER   Wed   20
 
-  sliceTable(table, 'city', 'GWY')  -> 'Mo,13\r\nTue,30\r\n' 
+	  sliceTable(table, 'city', 'GWY')  -> 'Mo,13\r\nTue,30\r\n' 
 
 */
 	sliceTable : function(table, seldim, seldimval){
@@ -215,9 +309,9 @@ var Addrable =  {
 	},
 
 /*
-  Slices a table header row, effectively filtering out the selected dimension.
+	  Indirect selection - slices a table header row, effectively filtering out the selected dimension.
  
-  sliceTableHeader(['city', 'date', 'temperature'], 'date') -> 'city,temperature\r\n'
+	  sliceTableHeader(['city', 'date', 'temperature'], 'date') -> 'city,temperature\r\n'
 */
 	sliceTableHeader : function(hrow, seldim){
 		var csvstring = "";
@@ -264,7 +358,7 @@ var Addrable =  {
 
 
 /////////////////////////////////
-// Addrable util functions
+// Utility functions
 //
 
 Object.size = function(obj) {
