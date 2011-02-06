@@ -16,6 +16,7 @@ var ADDRABLE_SELECTOR_COL = "col";
 var ADDRABLE_SELECTOR_ROW = "row";
 var ADDRABLE_SELECTOR_WHERE = "where";
 
+var ADDRABLE_DEBUG = false; // debug messages flag
 
 //////////////////////////////////////////////////////////
 // For server-side usage with node.js.
@@ -87,28 +88,36 @@ var Addrable =  {
 		var dimk = null;
 		var dimv = null;
 	
+		if(ADDRABLE_DEBUG) console.log("DEBUG::core trying to parse Addrable ...");
+	
 		if(tableuri.indexOf("#") < 0) { // no selector string found
+			if(ADDRABLE_DEBUG) console.log("DEBUG::core no selector found");
 			return null;
 		} 
 		else {
 			addrableMode = tableuri.substring(tableuri.indexOf("#") + 1, tableuri.indexOf(":"));
-			
-			if(addrableMode.length < 1) return null; // selector key not found
-
+			if(addrableMode.length < 1) {
+				if(ADDRABLE_DEBUG) console.log("DEBUG::core no selector key found");
+				return null; // selector key not found
+			} 
 			addrableVals = tableuri.substring(tableuri.indexOf("#") + 1);
 			addrableVals = addrableVals.substring(addrableVals.indexOf(":") + 1);
 			
+			if(ADDRABLE_DEBUG) console.log("DEBUG::core selector key=" + addrableMode);
 			if(addrableMode === ADDRABLE_SELECTOR_COL) { // column selection case
 				selcol = addrableVals;
+				if(ADDRABLE_DEBUG) console.log("DEBUG::core COL selection=" + selcol);
 				return [ADDRABLE_SELECTOR_COL, selcol];
 			}
 			else {
 				if(addrableMode === ADDRABLE_SELECTOR_ROW) { // row selection case
 					selrow = addrableVals;
+					if(ADDRABLE_DEBUG) console.log("DEBUG::core ROW selection=" + selrow);
 					return [ADDRABLE_SELECTOR_ROW, selrow];
 				}
 				else {
 					if(addrableMode === ADDRABLE_SELECTOR_WHERE) { // indirect selection case
+						if(ADDRABLE_DEBUG) console.log("DEBUG::core WHERE selection=" + addrableVals);
 						dimensions = addrableVals.split(","); // turn string into array of key/val pairs
 						for (dim in dimensions){ // each dimension found, put it into a hashtable
 							dimk = dimensions[dim].substring(0, dimensions[dim].indexOf("="));
@@ -121,6 +130,7 @@ var Addrable =  {
 						return [ADDRABLE_SELECTOR_WHERE, dimht];
 					}
 					else {
+						if(ADDRABLE_DEBUG) console.log("DEBUG::core UNKNOWN selection=" + addrableVals);
 						return null; // unknown selector
 					}
 				}
@@ -146,10 +156,10 @@ var Addrable =  {
 	  data ... CSV data
 	  tableuri ... URI with Addrable frag id
 	  colprocfun, rowprocfun, whereprocfun ... selector callbacks
-	  outelem ... (only for client-side) the @id of the HTML element for rendering the output
+	  outp ... client-side: the @id of the HTML element for rendering the output, server-side: the HTTP response object
 	 
 */
-	processAddrable : function(data, tableuri, colprocfun, rowprocfun, whereprocfun, outelem){
+	processAddrable : function(data, tableuri, colprocfun, rowprocfun, whereprocfun, outp){
 		var addrable = this.parseAddrable(tableuri); // parse selector string 
 		var addrablecase = null;
 		var selval = null;
@@ -159,15 +169,15 @@ var Addrable =  {
 			selval = addrable[1];
 
 			if(addrablecase === ADDRABLE_SELECTOR_COL) { // column selection case
-				return colprocfun(data, selval, outelem);
+				return colprocfun(data, selval, outp);
 			}
 			else {
 				if(addrablecase === ADDRABLE_SELECTOR_ROW) { // row selection case
-					return rowprocfun(data, selval, outelem);
+					return rowprocfun(data, selval, outp);
 				}
 				else {
 					if(addrablecase === ADDRABLE_SELECTOR_WHERE) { // indirect selection case
-						return whereprocfun(data, selval, outelem);
+						return whereprocfun(data, selval, outp);
 					}
 				}
 			}

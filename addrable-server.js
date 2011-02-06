@@ -13,19 +13,31 @@ var csv = require("./lib/csv");
 var addrable = require('./addrable-core');
 var adb = addrable.createAddrable();
 
+var ADDRABLE_SERVER_DEBUG = true; // debug messages flag
+
 // Processes an Addrable served-side:
 // returns JSON-encoded slice or entire CSV file if no selector present
 this.extract = function(req, res, tableuri) {
 	var successful = false;
 	
-	if(adb.isAddrable(tableuri)) { // we have an Addrable, process it ...
-		adb.processAddrable(data, tableuri, processcol, processrow, processwhere, outputid) ? successful = true : successful = false ;
-		if(!successful) a404("<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>Sorry, I can't process the Addrable - either the selector is invalid or it didn't match anything in the CSV file.</div>");
-	}
-	else { // ... return entire table
-		serveFile(req, res, tableuri, "text/csv"); 
-	}
-	
+	resolveFile(tableuri, function(data){ // the on-data-ready anonymous function
+		if(data){ // we have the CSV data in memory
+			tableuri = getPathAndFragFromURI(tableuri); // remove host and port
+			if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::EXTRACT check=[" + tableuri + "]");
+			if(adb.isAddrable(tableuri)) { // we have an Addrable, process it ...
+				if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::EXTRACT Addrable=" + tableuri);
+				adb.processAddrable(data, tableuri, processcol, processrow, processwhere, res) ? successful = true : successful = false ;
+				if(!successful) a404(res, "<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>Sorry, I can't process the Addrable - either the selector is invalid or it didn't match anything in the CSV file.</div>");
+			}
+			else { // ... return entire table
+				if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::EXTRACT entire file=" + tableuri);
+				serveFile(req, res, tableuri, "text/csv"); 
+			}
+		}
+		else {
+			a404(res, "<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>I can't the CSV file.</div>");
+		}
+	});
 }
 
 // Returns a reference to underlying Addrable object
@@ -38,32 +50,40 @@ this.getAddrable = function() {
 //
 
 // processes the column selection case on the server-side
-function processcol(data, selcol){
+function processcol(data, selcol, res){
 	var hrow = null; // the entire header row (column heads)
 	var fulltable = null; // the entire table
-	var b = "<div class='colvalues'>";
-	
-	/*
+	var b = "";
+	var rowidx = 0;
+		
+	res.writeHead(200, {"Content-Type": "application/json"});
+
+	if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL SEL=" + selcol);
+
 	if(selcol === "*"){ // return header row
-		hrow =  that.trimHeader($.csv()(data)[0]); // retrieve header row
-		for(h in hrow){
-			b += "<span class='colvalue'>" + hrow[h] + "</span>";
-		}
+		csv.parse(data.toString(), function(table) { // retrieve header row from CSV file
+			if(rowidx === 0) b = new String(table);
+			rowidx = rowidx + 1;
+		});
+		hrow = b.split(",");
+		res.write(JSON.stringify(hrow));
+		res.end();
+		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL SEL=" + JSON.stringify(hrow));
 	}
 	else { // select values from the column
+		/*
 		fulltable = $.csv2json()(data); // parse data into array
 		for(row in fulltable) {
 			b += "<div class='rowvalue'>" + fulltable[row][selcol] + "</div>";
 		}
-		
+		*/
 	}
-	*/
-	output.html(b + "</div>");
+
 	return true;
 }
 
 // processes the row selection case on the server-side
-function processrow(data, selrow){
+function processrow(data, selrow, res){
 	/*
 	var output = $(outputid);
 	var rcounter = 0;
@@ -105,7 +125,7 @@ function processrow(data, selrow){
 }
 
 // processes the indirect selection case on the server-side
-function processwhere(data, seldimensions){
+function processwhere(data, seldimensions, res){
 	var hrow = null; // the entire header row (column heads)
 	var hfrow = null; // the header row w/o the selected dimension (if only one is selected)
 	var fulltable = null; // the entire table
@@ -118,17 +138,50 @@ function processwhere(data, seldimensions){
 // Addrable server helper functions
 //
 
+// Determines if we have to deal with a local or a remote file
+// and parses the CSV data respectively
+function resolveFile(tableuri, datareadyproc){
+	var protocol = url.parse(tableuri).protocol;
+	var host = url.parse(tableuri).hostname;
+	
+	//console.log("DEBUG::resolving file from host=" + host);
+	if(host === "127.0.0.1") { // local file
+		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::parsing local file"); 
+		return parseLocalFile(tableuri, datareadyproc);
+	}
+	else{ // remote file, perform HTTP GET to read content
+		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::parsing remote file"); 
+		return null; // TBD
+	}
+}
+
+// serves entire file from local directory
+function parseLocalFile(fileuri, datareadyproc) {
+	var filename = getFileNameFromURI(fileuri);
+	filename =  path.join(process.cwd(), filename);
+
+	path.exists(filename, function(exists) {
+		if(!exists) return null;
+		//console.log("Found file " + filename);
+		fs.readFile(filename, function(err, file) {
+			if(err) return null;
+			if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::successfully parsed local file=[" + filename + "]");
+			datareadyproc(file); // once data is available call the respective method
+		});
+	});
+}
+
 // serves entire file from local directory
 function serveFile(req, res, fileuri, mediatype) {
 	var filename = getFileNameFromURI(fileuri);
 	filename =  path.join(process.cwd(), filename);
-	console.log("Looking for file " + filename);
+	//console.log("Looking for file " + filename);
 	path.exists(filename, function(exists) {
 		if(!exists) {
 			a404(res, "<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>Can't find the file</div>");
 			return;
 		}
-		console.log("Found file " + filename);
+		//console.log("Found file " + filename);
 		fs.readFile(filename, function(err, file) {
 			if(err) {
 				a500(res, err);
@@ -142,26 +195,19 @@ function serveFile(req, res, fileuri, mediatype) {
 	});
 }
 
-// serve slice of a data file along selected dimension(s)
-function sliceAsJSON(req, res, fileuri, seldimensions) {
-	fileuri =  stripHashFromURI(fileuri);
-	res.writeHead(200);
-	console.log("DEBUG::" + requestFileByURI(fileuri));
-	/*
-    csv.each("data/table1.csv").addListener("data", function(data) { 
-		console.log("DEBUG::" + data);
-	});
-	*/
-	res.write("Selected dimensions: " + adb.listDimensions(seldimensions));	
-	res.end();
-};
-
 // Extracts the path component of a HTTP URI
 function getFileNameFromURI(fileuri){
 	var filename = url.parse(fileuri).pathname;
 	if(filename.substring(0, 1) === '/') filename = filename.substring(1, filename.length);
-	//console.log("DEBUG:: filename===" + filename);
 	return filename;
+}
+
+// Extracts the path component and fragment identifier component of a HTTP URI
+function getPathAndFragFromURI(fileuri){
+	var filename = url.parse(fileuri).pathname;
+	var hash = (url.parse(fileuri).hash || "");
+	if(filename.substring(0, 1) === '/') filename = filename.substring(1, filename.length);
+	return filename + hash;
 }
 
 // Removes the fragment identifier part of a HTTP URI
@@ -172,7 +218,7 @@ function stripHashFromURI(fileuri){
 	return protocol + "//" + host + pathname;
 }
 
-//  Reads content of a file via HTTP GET
+// Reads content of a file via HTTP GET
 function requestFileByURI(fileuri) {
 	var host = url.parse(fileuri).hostname;
 	var port = url.parse(fileuri).port;
@@ -181,14 +227,13 @@ function requestFileByURI(fileuri) {
 	var request = reqclient.request('GET', pathname, {'host': host});
 	request.end();
 	
-	console.log("File URI: " + fileuri);
+	if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::remote file URI: " + fileuri);
 	
 	request.on('response', function (response) {
-		console.log('STATUS: ' + response.statusCode);
-		console.log('HEADERS: ' + JSON.stringify(response.headers));
+	if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG:: status=" + response.statusCode);
+	if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG:: headers=" + JSON.stringify(response.headers));
 		response.setEncoding('utf8');
 		response.on('data', function (chunk) {
-			console.log('BODY: ' + chunk);
 			return chunk;	
 		});
 	});	
