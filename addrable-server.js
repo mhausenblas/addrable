@@ -52,31 +52,39 @@ this.getAddrable = function() {
 // processes the column selection case on the server-side
 function processcol(data, selcol, res){
 	var hrow = null; // the entire header row (column heads)
-	var fulltable = null; // the entire table
+	var datatable = []; // the entire data table (without column heads)
+	var thecol = [];
 	var b = "";
 	var rowidx = 0;
+	var colidx = 0;
 		
 	res.writeHead(200, {"Content-Type": "application/json"});
 
 	if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL SEL=" + selcol);
 
+	csv.parse(data.toString(), function(table) { // retrieve header row from CSV file
+		if(rowidx === 0) b = new String(table); // only take header row into account
+		else datatable.push(new String(table));
+		rowidx = rowidx + 1;
+	});
+	hrow = b.split(",");
+
 	if(selcol === "*"){ // return header row
-		csv.parse(data.toString(), function(table) { // retrieve header row from CSV file
-			if(rowidx === 0) b = new String(table);
-			rowidx = rowidx + 1;
-		});
-		hrow = b.split(",");
 		res.write(JSON.stringify(hrow));
 		res.end();
 		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL SEL=" + JSON.stringify(hrow));
 	}
 	else { // select values from the column
-		/*
-		fulltable = $.csv2json()(data); // parse data into array
-		for(row in fulltable) {
-			b += "<div class='rowvalue'>" + fulltable[row][selcol] + "</div>";
+		for(h in hrow){ // scan for the column index
+			if(hrow[h] === selcol) colidx = h;
 		}
-		*/
+		for(row in datatable) {
+			therow = datatable[row].split(",");
+			thecol.push(therow[colidx]);
+		}
+		res.write(JSON.stringify(thecol));
+		res.end();
+		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL SEL=" + JSON.stringify(thecol));
 	}
 
 	return true;
