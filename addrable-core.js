@@ -61,12 +61,12 @@ var Addrable =  {
 	  Turns a percent-encoded path element of a URI into a valid dimension selector string
 	  (typically for server-side usage).
 
-	   preprocessDimensions('http%3A%2F%2F127.0.0.1%3A8086%2Fdata%2Ftable1.csv%23city%3DBerlin) -> 'http://127.0.0.1:8086/data/table1.csv#city=Berlin'
+	   preprocessDimensions('/http%3A%2F%2F127.0.0.1%3A8086%2Fdata%2Ftable1.csv%23city%3DBerlin) -> 'http://127.0.0.1:8086/data/table1.csv#city=Berlin'
 	
 */
 	preprocessDimensions : function(sURI){
 		if(sURI.substring(0, 1) === '/') sURI = sURI.substring(1, sURI.length); // get rid of leading slash if present
-		return sURI;
+		return unescape(sURI);
 	},
 
 /*

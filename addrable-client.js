@@ -4,7 +4,8 @@
 // Michael Hausenblas, 2011.
 //
 
-// renders slices in one of three modes: single value, line chart or table, depending on selected dimensions
+// Processes an Addrable client-side: renders slices in one of three modes -
+// single value, line chart or table, depending on selected dimensions
 Addrable.render = function(tableuri, outputid) {
 	var that = this;
 	
@@ -26,8 +27,8 @@ Addrable.render = function(tableuri, outputid) {
 		}
 	});
 
-	////////////////////////////////////
-	// Addrable client helper functions
+	////////////////////////////
+	// Addrable client functions
 	//
 
 	// processes the column selection case on the client-side
@@ -132,6 +133,10 @@ Addrable.render = function(tableuri, outputid) {
 		}
 		return true;
 	}
+	
+	////////////////////////////////////
+	// Addrable client helper functions
+	//
 	
 	// renders table along selected dimensions as CSV string to be rendered by jQuery plug-in
 	function renderAsTable(seldimensions, hrow, table){
