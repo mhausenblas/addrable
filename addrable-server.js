@@ -15,27 +15,37 @@ var adb = addrable.createAddrable();
 
 var ADDRABLE_SERVER_DEBUG = true; // debug messages flag
 
+var ADDRABLE_SERVER_200 = "200";
+var ADDRABLE_SERVER_404 = "404";
+var ADDRABLE_SERVER_500 = "500";
+
+
 // Processes an Addrable served-side:
 // returns JSON-encoded slice or entire CSV file if no selector present
-this.extract = function(req, res, tableuri) {
+this.extract = function(adrblhost, req, res, aURI) {
 	var successful = false;
 	
-	resolveFile(tableuri, function(data){ // the on-data-ready anonymous function
+	resolveFile(adrblhost, aURI, function(data, status, msg){ // the on-data-ready anonymous function
 		if(data){ // we have the CSV data in memory
-			tableuri = getPathAndFragFromURI(tableuri); // remove host and port
-			if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::EXTRACT check=[" + tableuri + "]");
-			if(adb.isAddrable(tableuri)) { // we have an Addrable, process it ...
-				if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::EXTRACT Addrable=" + tableuri);
-				adb.processAddrable(data, tableuri, processcol, processrow, processwhere, res) ? successful = true : successful = false ;
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("EXTRACT check=[" + aURI + "]");
+			aURI = getPathAndFragFromURI(aURI); // remove host and port
+			if(adb.isAddrable(aURI)) { // we have an Addrable, process it ...
+				if(ADDRABLE_SERVER_DEBUG) sys.debug("EXTRACT Addrable=" + aURI);
+				adb.processAddrable(data, aURI, processcol, processrow, processwhere, res) ? successful = true : successful = false ;
 				if(!successful) a404(res, "<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>Sorry, I can't process the Addrable - either the selector is invalid or it didn't match anything in the CSV file.</div>");
 			}
 			else { // ... return entire table
-				if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::EXTRACT entire file=" + tableuri);
-				serveFile(req, res, tableuri, "text/csv"); 
+				if(ADDRABLE_SERVER_DEBUG) sys.debug("EXTRACT serving entire file ...");
+				serveFileAs(res, data, aURI, "text/csv"); 
 			}
 		}
-		else {
-			a404(res, "<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>I can't the CSV file.</div>");
+		else { // examine status
+			if(status === ADDRABLE_SERVER_404) {
+				a404(res, "<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>" + msg + "</div>");
+			}
+			if(status === ADDRABLE_SERVER_404) {
+				a500(res, "<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>" + msg + "</div>");
+			}
 		}
 	});
 }
@@ -56,16 +66,20 @@ function processcol(data, selcol, res){
 	var thecol = []; // the selected column
 	var b = "";
 	var rowidx = 0;
-	
-	if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL SEL=[" + selcol + "]");
+	var start = 0, end = 0;
+		
+	if(ADDRABLE_SERVER_DEBUG) {
+		sys.debug("COL SEL=[" + selcol + "]");
+		start = new Date().getTime();
+	} 
 
 	csv.parse(data.toString(), function(row) { // retrieve header row from CSV file
 		var rvals = [];
 		rvals.length = 0; // clear content
-		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL -------------------");
+		if(ADDRABLE_SERVER_DEBUG) sys.debug("COL -------------------");
 		if(rowidx === 0){ // remember header row
 			hrow = row; 
-			if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL header=" + hrow);
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("COL header=" + hrow);
 		} 
 		else { // non-header rows
 			for(h in hrow) {
@@ -74,18 +88,23 @@ function processcol(data, selcol, res){
 			if(ADDRABLE_SERVER_DEBUG) {
 				b = "";
 				for(c in rvals) b +=  c + ":" + rvals[c] + " ";
-				console.log("DEBUG::COL parsed row=[ " + b + "]");
+				sys.debug("COL parsed row=[ " + b + "]");
 			} 
 			datatable.push(rvals);
 		}
 		rowidx = rowidx + 1;
 	});
 
+	if(ADDRABLE_SERVER_DEBUG) {
+		end = new Date().getTime();
+		sys.debug("CSV data parsed in " + (end-start)  + "ms");
+	}
+	
 	if(selcol === "*"){ // return header row
 		res.writeHead(200, {"Content-Type": "application/json"});
 		res.write(JSON.stringify(hrow));
 		res.end();
-		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL value=" + JSON.stringify(hrow));
+		if(ADDRABLE_SERVER_DEBUG) sys.debug("COL value=" + JSON.stringify(hrow));
 	}
 	else { // select values from the column
 		if(adb.hasDimension(selcol, hrow)){ // check if column exists in header row
@@ -95,10 +114,10 @@ function processcol(data, selcol, res){
 			res.writeHead(200, {"Content-Type": "application/json"});
 			res.write(JSON.stringify(thecol));
 			res.end();
-			if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL value=" + JSON.stringify(thecol));
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("COL value=" + JSON.stringify(thecol));
 		}
 		else { // dimension does not exits
-			if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL [" + selcol + "] does not exist");
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("COL [" + selcol + "] does not exist");
 			return false;
 		}
 	}
@@ -163,17 +182,17 @@ function processwhere(data, seldimensions, res){
 
 // Determines if we have to deal with a local or a remote file
 // and parses the CSV data respectively
-function resolveFile(tableuri, datareadyproc){
+function resolveFile(adrblhost, tableuri, datareadyproc){
 	var protocol = url.parse(tableuri).protocol;
 	var host = url.parse(tableuri).hostname;
 	
-	//console.log("DEBUG::resolving file from host=" + host);
-	if(host === "127.0.0.1") { // local file
-		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::parsing local file"); 
+	//sys.debug("resolving file from host=" + host);
+	if(host === adrblhost) { // local file
+		if(ADDRABLE_SERVER_DEBUG) sys.debug("Trying to parse local file"); 
 		return parseLocalFile(tableuri, datareadyproc);
 	}
 	else{ // remote file, perform HTTP GET to read content
-		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::parsing remote file"); 
+		if(ADDRABLE_SERVER_DEBUG) sys.debug("Trying to parse remote file"); 
 		return null; // TBD
 	}
 }
@@ -181,41 +200,37 @@ function resolveFile(tableuri, datareadyproc){
 // serves entire file from local directory
 function parseLocalFile(fileuri, datareadyproc) {
 	var filename = getFileNameFromURI(fileuri);
-	filename =  path.join(process.cwd(), filename);
+	var start = 0, end = 0;
 
+	filename =  path.join(process.cwd(), filename);
+		
+	if(ADDRABLE_SERVER_DEBUG) start = new Date().getTime();
+	
 	path.exists(filename, function(exists) {
-		if(!exists) return null;
-		//console.log("Found file " + filename);
-		fs.readFile(filename, function(err, file) {
-			if(err) return null;
-			if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::successfully parsed local file=[" + filename + "]");
-			datareadyproc(file); // once data is available call the respective method
+		if(!exists) {
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("Local file " + filename + " doesn't exist ..."); 
+			datareadyproc(null, ADDRABLE_SERVER_404, "Local file " + getFileNameFromURI(fileuri) + " doesn't exist ...");
+			return;
+		}
+		fs.readFile(filename, function(err, filecontent) {
+			if(err) {
+				if(ADDRABLE_SERVER_DEBUG) sys.debug("Error reading local file " + filename + " ..."); 
+				datareadyproc(null, ADDRABLE_SERVER_500, "Error reading local file " + getFileNameFromURI(fileuri) + " ...");
+				return;
+			} 
+			end = new Date().getTime();
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("Successfully parsed local file " + filename + " in " + (end-start) + "ms");
+			datareadyproc(filecontent, ADDRABLE_SERVER_200, fileuri); // once data is available call the respective method for Addrable processing
 		});
 	});
 }
 
-// serves entire file from local directory
-function serveFile(req, res, fileuri, mediatype) {
-	var filename = getFileNameFromURI(fileuri);
-	filename =  path.join(process.cwd(), filename);
-	//console.log("Looking for file " + filename);
-	path.exists(filename, function(exists) {
-		if(!exists) {
-			a404(res, "<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>Can't find the file</div>");
-			return;
-		}
-		//console.log("Found file " + filename);
-		fs.readFile(filename, function(err, file) {
-			if(err) {
-				a500(res, err);
-				return;
-			}
-			console.log("Successfully served file [" + filename + "] as " + mediatype);
-			res.writeHead(200, {"Content-Type": mediatype});
-			res.write(file);
-			res.end();
-		});
-	});
+// serves entire file from memory as with certain media type
+function serveFileAs(res, data, fileuri, mediatype) {
+	res.writeHead(200, {"Content-Type": mediatype});
+	res.write(data);
+	res.end();
+	if(ADDRABLE_SERVER_DEBUG) sys.debug("Successfully served local file [" + getFileNameFromURI(fileuri) + "] as " + mediatype);
 }
 
 // Extracts the path component of a HTTP URI
@@ -250,11 +265,11 @@ function requestFileByURI(fileuri) {
 	var request = reqclient.request('GET', pathname, {'host': host});
 	request.end();
 	
-	if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::remote file URI: " + fileuri);
+	if(ADDRABLE_SERVER_DEBUG) sys.debug("remote file URI: " + fileuri);
 	
 	request.on('response', function (response) {
-	if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG:: status=" + response.statusCode);
-	if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG:: headers=" + JSON.stringify(response.headers));
+	if(ADDRABLE_SERVER_DEBUG) sys.debug(" status=" + response.statusCode);
+	if(ADDRABLE_SERVER_DEBUG) sys.debug(" headers=" + JSON.stringify(response.headers));
 		response.setEncoding('utf8');
 		response.on('data', function (chunk) {
 			return chunk;	
