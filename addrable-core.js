@@ -214,6 +214,22 @@ var Addrable =  {
 		}
 		return null;
 	},
+	
+/*
+	  Cheks if a dimension exists by comparing it against header row.
+
+	  hasDimension('city', ['city', 'date', 'temperature']) -> true
+	  hasDimension('person', ['city', 'date', 'temperature']) -> false
+
+*/
+	hasDimension  : function(seldimension, hrow){
+		for(h in hrow){
+			if(seldimension === hrow[h]) {
+				return true;
+			}
+		}
+		return false;
+	},
 
 /*
 	  Indirect selection - slices a table along a selected dimension (with optional

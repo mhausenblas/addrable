@@ -53,40 +53,55 @@ this.getAddrable = function() {
 function processcol(data, selcol, res){
 	var hrow = null; // the entire header row (column heads)
 	var datatable = []; // the entire data table (without column heads)
-	var thecol = [];
+	var thecol = []; // the selected column
 	var b = "";
 	var rowidx = 0;
-	var colidx = 0;
-		
-	res.writeHead(200, {"Content-Type": "application/json"});
+	
+	if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL SEL=[" + selcol + "]");
 
-	if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL SEL=" + selcol);
-
-	csv.parse(data.toString(), function(table) { // retrieve header row from CSV file
-		if(rowidx === 0) b = new String(table); // only take header row into account
-		else datatable.push(new String(table));
+	csv.parse(data.toString(), function(row) { // retrieve header row from CSV file
+		var rvals = [];
+		rvals.length = 0; // clear content
+		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL -------------------");
+		if(rowidx === 0){ // remember header row
+			hrow = row; 
+			if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL header=" + hrow);
+		} 
+		else { // non-header rows
+			for(h in hrow) {
+				rvals[hrow[h]] = row[h]; // encode data table in d[i][column] format
+			}
+			if(ADDRABLE_SERVER_DEBUG) {
+				b = "";
+				for(c in rvals) b +=  c + ":" + rvals[c] + " ";
+				console.log("DEBUG::COL parsed row=[ " + b + "]");
+			} 
+			datatable.push(rvals);
+		}
 		rowidx = rowidx + 1;
 	});
-	hrow = b.split(",");
 
 	if(selcol === "*"){ // return header row
+		res.writeHead(200, {"Content-Type": "application/json"});
 		res.write(JSON.stringify(hrow));
 		res.end();
-		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL SEL=" + JSON.stringify(hrow));
+		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL value=" + JSON.stringify(hrow));
 	}
 	else { // select values from the column
-		for(h in hrow){ // scan for the column index
-			if(hrow[h] === selcol) colidx = h;
+		if(adb.hasDimension(selcol, hrow)){ // check if column exists in header row
+			for(row in datatable) {
+				thecol.push(datatable[row][selcol]);
+			}
+			res.writeHead(200, {"Content-Type": "application/json"});
+			res.write(JSON.stringify(thecol));
+			res.end();
+			if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL value=" + JSON.stringify(thecol));
 		}
-		for(row in datatable) {
-			therow = datatable[row].split(",");
-			thecol.push(therow[colidx]);
+		else { // dimension does not exits
+			if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL [" + selcol + "] does not exist");
+			return false;
 		}
-		res.write(JSON.stringify(thecol));
-		res.end();
-		if(ADDRABLE_SERVER_DEBUG) console.log("DEBUG::COL SEL=" + JSON.stringify(thecol));
 	}
-
 	return true;
 }
 
@@ -246,6 +261,7 @@ function requestFileByURI(fileuri) {
 		});
 	});	
 }
+
 
 // Renders a 404 in HTML
 function a404(res, msg){
