@@ -39,7 +39,7 @@ this.extract = function(adrblhost, req, res, aURI) {
 				serveFileAs(res, data, aURI, "text/csv"); 
 			}
 		}
-		else { // examine status
+		else { // error reading the data into memory, examine status
 			if(status === ADDRABLE_SERVER_404) {
 				a404(res, "<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>" + msg + "</div>");
 			}
@@ -61,44 +61,12 @@ this.getAddrable = function() {
 
 // processes the column selection case on the server-side
 function processcol(data, selcol, res){
-	var hrow = null; // the entire header row (column heads)
-	var datatable = []; // the entire data table (without column heads)
+	var presult = parseCSVData(data);
+	var hrow = presult[0]; // the entire header row (column heads)
+	var datatable = presult[1]; // the entire data table in d[i][column] format
 	var thecol = []; // the selected column
-	var b = "";
-	var rowidx = 0;
-	var start = 0, end = 0;
-		
-	if(ADDRABLE_SERVER_DEBUG) {
-		sys.debug("COL SEL=[" + selcol + "]");
-		start = new Date().getTime();
-	} 
 
-	csv.parse(data.toString(), function(row) { // retrieve header row from CSV file
-		var rvals = [];
-		rvals.length = 0; // clear content
-		if(ADDRABLE_SERVER_DEBUG) sys.debug("COL -------------------");
-		if(rowidx === 0){ // remember header row
-			hrow = row; 
-			if(ADDRABLE_SERVER_DEBUG) sys.debug("COL header=" + hrow);
-		} 
-		else { // non-header rows
-			for(h in hrow) {
-				rvals[hrow[h]] = row[h]; // encode data table in d[i][column] format
-			}
-			if(ADDRABLE_SERVER_DEBUG) {
-				b = "";
-				for(c in rvals) b +=  c + ":" + rvals[c] + " ";
-				sys.debug("COL parsed row=[ " + b + "]");
-			} 
-			datatable.push(rvals);
-		}
-		rowidx = rowidx + 1;
-	});
-
-	if(ADDRABLE_SERVER_DEBUG) {
-		end = new Date().getTime();
-		sys.debug("CSV data parsed in " + (end-start)  + "ms");
-	}
+	if(ADDRABLE_SERVER_DEBUG) sys.debug("COL SEL=[" + selcol + "]");
 	
 	if(selcol === "*"){ // return header row
 		res.writeHead(200, {"Content-Type": "application/json"});
@@ -179,6 +147,49 @@ function processwhere(data, seldimensions, res){
 ////////////////////////////////////
 // Addrable server helper functions
 //
+
+
+// Parse CSV data
+function parseCSVData(data){
+	var rowidx = 0;
+	var hrow = null; // the entire header row (column heads)
+	var datatable = []; // the entire data table (without column heads)
+	var start = 0, end = 0;
+	var b = "";
+			
+	if(ADDRABLE_SERVER_DEBUG) start = new Date().getTime();
+	
+	csv.parse(data.toString(), function(row) { // retrieve header row from CSV file
+		var rvals = [];
+		rvals.length = 0; // clear content
+		if(ADDRABLE_SERVER_DEBUG) sys.debug("COL -------------------");
+		if(rowidx === 0){ // remember header row
+			hrow = row; 
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("COL header=" + hrow);
+		} 
+		else { // non-header rows
+			for(h in hrow) {
+				rvals[hrow[h]] = row[h]; // encode data table in d[i][column] format
+			}
+			if(ADDRABLE_SERVER_DEBUG) {
+				b = "";
+				for(c in rvals) b +=  c + ":" + rvals[c] + " ";
+				sys.debug("COL parsed row=[ " + b + "]");
+			} 
+			datatable.push(rvals);
+		}
+		rowidx = rowidx + 1;
+	});
+	
+	if(ADDRABLE_SERVER_DEBUG) {
+		end = new Date().getTime();
+		sys.debug("CSV data parsed in " + (end-start)  + "ms");
+	}
+	
+	return [hrow, datatable];
+}
+
+
 
 // Determines if we have to deal with a local or a remote file
 // and parses the CSV data respectively
