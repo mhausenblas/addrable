@@ -144,11 +144,45 @@ function processrow(data, selrow, res){
 
 // processes the indirect selection case on the server-side
 function processwhere(data, seldimensions, res){
-	var hrow = null; // the entire header row (column heads)
-	var hfrow = null; // the header row w/o the selected dimension (if only one is selected)
-	var fulltable = null; // the entire table
-	var xdim = "";
-	var ydim = "";
+	var presult = parseCSVData(data);
+	var hrow = presult[0]; // the entire header row (column heads)
+	var hfrow = adb.filterTableHeader(hrow, seldimensions); // the filtered header row (only non-selected dimensions)
+	var datatable = presult[1]; // the entire data table in d[i][column] format
+	var result = {};
+	var matches = true;	
+	var arow = [];
+	var rowidx = 0;
+	var colidx = 0;
+			
+	// todo: check if all dimensions exist, otherwise return false
+	
+	// todo - outsource this to core and update client implementation as well
+	for(h in hfrow){ // scan through filtered header row
+		rowidx = 0;
+		arow[colidx] = [];
+		for(row in datatable) { // go through all rows in original data table
+			matches =  true;
+			for(sdim in seldimensions){ // check if selected dimension values match
+				if(seldimensions[sdim] !== datatable[row][sdim]) matches = false;
+			}
+			if(matches){
+				if(ADDRABLE_SERVER_DEBUG) sys.debug("WHERE matched cell=" + hfrow[h] + ":" + datatable[row][hfrow[h]] + " for col/row =" + colidx + "/" + rowidx);
+				arow[colidx][rowidx] = datatable[row][hfrow[h]];
+				rowidx = rowidx + 1;
+			}
+		}
+		colidx =  colidx + 1;
+	}
+	
+	// todo: check if anything matched, otherwise return false
+	
+	res.writeHead(200, {"Content-Type": "application/json"});
+	result = { header : hfrow, rows : arow }; // note - differs from row:x output format, maybe align?
+	sresult = JSON.stringify(result);
+	res.write(sresult);
+	res.end();
+	if(ADDRABLE_SERVER_DEBUG) sys.debug("WHERE result=" + sresult);
+	
 }
 
 

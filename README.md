@@ -75,16 +75,28 @@ I've tested it with jQuery 1.4.2 and the [js-tables](http://code.google.com/p/js
 On the server, you need to have node.js [installed](https://github.com/ry/node/wiki/Installation). You can then run the Addrable server demo:
 
     $ node addrable-node.js 
-    Addrable server running and listening on port 8086 ...
-    Using: Addrable v0.1
+    Addrable v0.1 running on server 127.0.0.1, listening on port 8086
 
-Once you've started the Addrable server demo, you can use, for example `curl` to resolve Addrables, for example:
+Once you've started the Addrable server demo, you can use, for example `curl` to resolve Addrables. 
 
-    $ curl http://127.0.0.1:8086/http%3A%2F%2F127.0.0.1%3A8086%2Fdata%2Ftable1.csv
+    $ curl http://127.0.0.1:8086/http%3A%2F%2F127.0.0.1%3A8086%2Fdata%2Ftable1.csv%23where%3Acity%3DBerlin
+
+This Addrable is the same as in the introductory example above - it selects a slice with the two remaining columns `person` and `visits` and returns it encoded in JSON as so:
+
+    {
+       "header": ["person", "visits"],
+       "rows": [
+                 ["Richard", "Michael"], 
+                 ["20", "4"]
+               ]
+    }
+
+To dig deeper into the server-side demo, you might want to have a look at the [Addrable Server demo documentation](https://github.com/mhausenblas/addrable/blob/master/doc/server_demo.md).
+
 
 #### Dependencies
 
-I've tested it with node-v0.2.6 and curl under MacOS X 10.5.8. *Note that the server-side is not yet fully functional, but I'm working on it ;)*
+I've tested it with node-v0.2.6 and curl under MacOS X 10.5.8. *Note that the server-side implementation, especially the JSON format, is not stable, yet*.
 
 
 ## Acknowledgements
