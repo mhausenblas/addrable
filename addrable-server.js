@@ -34,7 +34,7 @@ this.extract = function(adrblhost, req, res, aURI) {
 				adb.processAddrable(data, aURI, processcol, processrow, processwhere, res) ? successful = true : successful = false ;
 				if(!successful) a404(res, "<div style='border: 1px solid red; background: #fafafa; font-family: monospace; font-size: 90%; padding: 3px;'>Sorry, I can't process the Addrable - either the selector is invalid or it didn't match anything in the CSV file.</div>");
 			}
-			else { // ... return entire table
+			else { // ... return entire table as CSV file 
 				if(ADDRABLE_SERVER_DEBUG) sys.debug("EXTRACT serving entire file ...");
 				serveFileAs(res, data, aURI, "text/csv"); 
 			}
@@ -94,44 +94,47 @@ function processcol(data, selcol, res){
 
 // processes the row selection case on the server-side
 function processrow(data, selrow, res){
-	/*
-	var output = $(outputid);
+	var presult = parseCSVData(data);
+	var hrow = presult[0]; // the entire header row (column heads)
+	var datatable = presult[1]; // the entire data table in d[i][column] format
 	var rcounter = 0;
-	var hrow = null; // the entire header row (column heads)
-	var fulltable = null; // the entire table
-	var b = "<div class='rowvalues'>";
-
-	fulltable = $.csv2json()(data); // parse data into array
+	var sresult = "";
+	var r = {};
 	
+	if(ADDRABLE_SERVER_DEBUG) sys.debug("ROW SEL=[" + selrow + "]");
+
+	for(row in datatable) { // determine number of rows
+		rcounter = rcounter + 1;
+	}
 	if(selrow === "*"){ // count rows
-		for(row in fulltable) {
-			rcounter = rcounter + 1;
-		}
-		b += "<span class='colvalue'>table contains " + rcounter + " rows</span>";
+		res.writeHead(200, {"Content-Type": "application/json"});
+		sresult = JSON.stringify({ numrows : rcounter });
+		res.write(sresult);
+		res.end();
+		if(ADDRABLE_SERVER_DEBUG) sys.debug("ROW count=" + sresult);
 	}
 	else { // select all columns from specified row or null if not exists
-		if (selrow < 0) return null; // row index invalid, signal failure
-		hrow =  that.trimHeader($.csv()(data)[0]); // retrieve header row
-		for(row in fulltable) {
-			rcounter = rcounter + 1;
-			if(row === selrow) {
-				b += "<table><tr>";
-				for(h in hrow){
-					b += "<th>" + hrow[h] + "</th>";
-				}
-				b += "</tr><tr>";
-				for(h in hrow){
-					b += "<td>" + fulltable[row][hrow[h]]+ "</td>";
-				}
-				b += "</tr></table>";
-				break;
-			}
+		if (isNaN(parseInt(selrow, 10)) || (selrow < 0) || (selrow > rcounter - 1)) { // invalid row index or out of range, signal failure
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("ROW [" + selrow + "] invalid or does not exist");
+			return false;
 		}
-		if (selrow > rcounter - 1) return null; // row index beyond table length, signal failure
+		else { // row index in range
+			for(row in datatable) {
+				if(row === selrow) {
+					for(h in hrow){ // copy values from row
+						r[hrow[h]] = datatable[row][hrow[h]];
+					}
+					break;
+				}
+			}
+			res.writeHead(200, {"Content-Type": "application/json"});
+			sresult = JSON.stringify({ row : r });
+			res.write(sresult);
+			res.end();
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("ROW value=" + sresult);
+		}
 	}
-	output.html(b + "</div>");
 	return true;
-	*/
 }
 
 // processes the indirect selection case on the server-side
@@ -162,10 +165,10 @@ function parseCSVData(data){
 	csv.parse(data.toString(), function(row) { // retrieve header row from CSV file
 		var rvals = [];
 		rvals.length = 0; // clear content
-		if(ADDRABLE_SERVER_DEBUG) sys.debug("COL -------------------");
+		if(ADDRABLE_SERVER_DEBUG) sys.debug("PARSE -------------------");
 		if(rowidx === 0){ // remember header row
 			hrow = row; 
-			if(ADDRABLE_SERVER_DEBUG) sys.debug("COL header=" + hrow);
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("PARSE header=" + hrow);
 		} 
 		else { // non-header rows
 			for(h in hrow) {
@@ -174,7 +177,7 @@ function parseCSVData(data){
 			if(ADDRABLE_SERVER_DEBUG) {
 				b = "";
 				for(c in rvals) b +=  c + ":" + rvals[c] + " ";
-				sys.debug("COL parsed row=[ " + b + "]");
+				sys.debug("PARSE row=[ " + b + "]");
 			} 
 			datatable.push(rvals);
 		}
@@ -183,13 +186,11 @@ function parseCSVData(data){
 	
 	if(ADDRABLE_SERVER_DEBUG) {
 		end = new Date().getTime();
-		sys.debug("CSV data parsed in " + (end-start)  + "ms");
+		sys.debug("PARSE CSV data parsed in " + (end-start)  + "ms");
 	}
 	
 	return [hrow, datatable];
 }
-
-
 
 // Determines if we have to deal with a local or a remote file
 // and parses the CSV data respectively
@@ -199,11 +200,11 @@ function resolveFile(adrblhost, tableuri, datareadyproc){
 	
 	//sys.debug("resolving file from host=" + host);
 	if(host === adrblhost) { // local file
-		if(ADDRABLE_SERVER_DEBUG) sys.debug("Trying to parse local file"); 
+		if(ADDRABLE_SERVER_DEBUG) sys.debug("RESOLVE trying to parse local file"); 
 		return parseLocalFile(tableuri, datareadyproc);
 	}
 	else{ // remote file, perform HTTP GET to read content
-		if(ADDRABLE_SERVER_DEBUG) sys.debug("Trying to parse remote file"); 
+		if(ADDRABLE_SERVER_DEBUG) sys.debug("RESOLVE trying to parse remote file"); 
 		return null; // TBD
 	}
 }
@@ -219,18 +220,18 @@ function parseLocalFile(fileuri, datareadyproc) {
 	
 	path.exists(filename, function(exists) {
 		if(!exists) {
-			if(ADDRABLE_SERVER_DEBUG) sys.debug("Local file " + filename + " doesn't exist ..."); 
-			datareadyproc(null, ADDRABLE_SERVER_404, "Local file " + getFileNameFromURI(fileuri) + " doesn't exist ...");
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("LOCAL FILE " + filename + " doesn't exist ..."); 
+			datareadyproc(null, ADDRABLE_SERVER_404, "LOCAL FILE " + getFileNameFromURI(fileuri) + " doesn't exist ...");
 			return;
 		}
 		fs.readFile(filename, function(err, filecontent) {
 			if(err) {
-				if(ADDRABLE_SERVER_DEBUG) sys.debug("Error reading local file " + filename + " ..."); 
-				datareadyproc(null, ADDRABLE_SERVER_500, "Error reading local file " + getFileNameFromURI(fileuri) + " ...");
+				if(ADDRABLE_SERVER_DEBUG) sys.debug("LOCAL FILE error reading " + filename + " ..."); 
+				datareadyproc(null, ADDRABLE_SERVER_500, "LOCAL FILE error reading " + getFileNameFromURI(fileuri) + " ...");
 				return;
 			} 
 			end = new Date().getTime();
-			if(ADDRABLE_SERVER_DEBUG) sys.debug("Successfully parsed local file " + filename + " in " + (end-start) + "ms");
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("LOCAL FILE successfully parsed " + filename + " in " + (end-start) + "ms");
 			datareadyproc(filecontent, ADDRABLE_SERVER_200, fileuri); // once data is available call the respective method for Addrable processing
 		});
 	});
