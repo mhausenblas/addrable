@@ -65,14 +65,17 @@ function processcol(data, selcol, res){
 	var hrow = presult[0]; // the entire header row (column heads)
 	var datatable = presult[1]; // the entire data table in d[i][column] format
 	var thecol = []; // the selected column
+	var result = {};
+	var sresult = "";
 
 	if(ADDRABLE_SERVER_DEBUG) sys.debug("COL SEL=[" + selcol + "]");
 	
 	if(selcol === "*"){ // return header row
 		res.writeHead(200, {"Content-Type": "application/json"});
-		res.write(JSON.stringify(hrow));
+		sresult = JSON.stringify({ header : hrow });
+		res.write(sresult);
 		res.end();
-		if(ADDRABLE_SERVER_DEBUG) sys.debug("COL value=" + JSON.stringify(hrow));
+		if(ADDRABLE_SERVER_DEBUG) sys.debug("COL value=" + sresult);
 	}
 	else { // select values from the column
 		if(adb.hasDimension(selcol, hrow)){ // check if column exists in header row
@@ -80,9 +83,11 @@ function processcol(data, selcol, res){
 				thecol.push(datatable[row][selcol]);
 			}
 			res.writeHead(200, {"Content-Type": "application/json"});
-			res.write(JSON.stringify(thecol));
+			result[selcol] = thecol;
+			sresult = JSON.stringify(result);
+			res.write(sresult);
 			res.end();
-			if(ADDRABLE_SERVER_DEBUG) sys.debug("COL value=" + JSON.stringify(thecol));
+			if(ADDRABLE_SERVER_DEBUG) sys.debug("COL value=" + sresult);
 		}
 		else { // dimension does not exits
 			if(ADDRABLE_SERVER_DEBUG) sys.debug("COL [" + selcol + "] does not exist");
